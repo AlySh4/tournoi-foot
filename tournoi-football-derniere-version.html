@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tournoi de Football - Calendrier & Classement</title>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e2a;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, #1a237e 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, #0d47a1 0%, transparent 40%),
+      radial-gradient(ellipse at 20% 80%, #1a237e 0%, transparent 35%);
+    min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1.2px 1.2px at 10% 15%, rgba(255,255,255,0.7) 50%, transparent 50%),
+      radial-gradient(1px 1px at 25% 35%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 40% 8%, rgba(255,255,255,0.8) 50%, transparent 50%),
+      radial-gradient(1px 1px at 55% 42%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.3px 1.3px at 70% 20%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1.4px 1.4px at 15% 60%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(1px 1px at 35% 75%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.6px 1.6px at 60% 65%, rgba(255,255,255,0.7) 50%, transparent 50%),
+      radial-gradient(1px 1px at 78% 80%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1.2px 1.2px at 92% 30%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(1px 1px at 5% 90%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 48% 92%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1px 1px at 30% 50%, rgba(255,255,255,0.3) 50%, transparent 50%),
+      radial-gradient(1.3px 1.3px at 65% 45%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1px 1px at 88% 10%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.1px 1.1px at 50% 28%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(1px 1px at 18% 44%, rgba(255,255,255,0.35) 50%, transparent 50%),
+      radial-gradient(1.4px 1.4px at 73% 72%, rgba(255,255,255,0.55) 50%, transparent 50%),
+      radial-gradient(1px 1px at 42% 58%, rgba(255,255,255,0.4) 50%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: twinkle 6s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.75; }
+  }
+  #root { position: relative; z-index: 1; }
+  input { -webkit-appearance: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useCallback, useEffect } = React;
+
+const STORAGE_KEY = "tournoi_foot_data_v1";
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return null;
+}
+
+function saveData(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+const SCHEDULE = [
+  { week: 17, label: "21 - 22 avril", matches: [
+    { id: "m1", day: "Mardi", date: "21 avril", team1: "A1", team2: "A2", ref: "B3", group: "A" },
+    { id: "m2", day: "Mardi", date: "21 avril", team1: "B1", team2: "B2", ref: "A5", group: "B" },
+    { id: "m3", day: "Mercredi", date: "22 avril", team1: "A3", team2: "A4", ref: "B5", group: "A" },
+  ]},
+  { week: 18, label: "28 - 29 avril", matches: [
+    { id: "m4", day: "Mardi", date: "28 avril", team1: "A1", team2: "A3", ref: "B1", group: "A" },
+    { id: "m5", day: "Mardi", date: "28 avril", team1: "B3", team2: "B5", ref: "A5", group: "B" },
+    { id: "m6", day: "Mercredi", date: "29 avril", team1: "A2", team2: "A4", ref: "B2", group: "A" },
+  ]},
+  { week: 19, label: "5 - 6 mai", matches: [
+    { id: "m7", day: "Mardi", date: "5 mai", team1: "A2", team2: "A5", ref: "A3", group: "A" },
+    { id: "m8", day: "Mardi", date: "5 mai", team1: "B1", team2: "B4", ref: "B5", group: "B" },
+    { id: "m9", day: "Mercredi", date: "6 mai", team1: "B2", team2: "B3", ref: "A1", group: "B" },
+  ]},
+  { week: 20, label: "12 - 13 mai", matches: [
+    { id: "m10", day: "Mardi", date: "12 mai", team1: "A1", team2: "A4", ref: "B1", group: "A" },
+    { id: "m11", day: "Mardi", date: "12 mai", team1: "B2", team2: "B5", ref: "A2", group: "B" },
+    { id: "m12", day: "Mercredi", date: "13 mai", team1: "A3", team2: "A5", ref: "B4", group: "A" },
+  ]},
+  { week: 21, label: "19 - 20 mai", matches: [
+    { id: "m13", day: "Mardi", date: "19 mai", team1: "A1", team2: "A5", ref: "A3", group: "A" },
+    { id: "m14", day: "Mardi", date: "19 mai", team1: "B1", team2: "B3", ref: "B2", group: "B" },
+    { id: "m15", day: "Mercredi", date: "20 mai", team1: "B4", team2: "B5", ref: "A4", group: "B" },
+  ]},
+  { week: 22, label: "26 - 27 mai", matches: [
+    { id: "m16", day: "Mardi", date: "26 mai", team1: "A2", team2: "A3", ref: "A1", group: "A" },
+    { id: "m17", day: "Mardi", date: "26 mai", team1: "B2", team2: "B4", ref: "B5", group: "B" },
+    { id: "m18", day: "Mercredi", date: "27 mai", team1: "A4", team2: "A5", ref: "B1", group: "A" },
+  ]},
+  { week: 23, label: "2 juin", matches: [
+    { id: "m19", day: "Mardi", date: "2 juin", team1: "B1", team2: "B5", ref: "A1", group: "B" },
+    { id: "m20", day: "Mardi", date: "2 juin", team1: "B3", team2: "B4", ref: "A2", group: "B" },
+  ]},
+];
+
+const INIT_NAMES = {
+  A1: "Équipe A1", A2: "Équipe A2", A3: "Équipe A3", A4: "Équipe A4", A5: "Équipe A5",
+  B1: "Équipe B1", B2: "Équipe B2", B3: "Équipe B3", B4: "Équipe B4", B5: "Équipe B5",
+};
+
+const CA = "#4caf50";
+const CB = "#42a5f5";
+
+function getStandings(group, scores) {
+  const teams = [1,2,3,4,5].map(n => group + n);
+  const st = {};
+  teams.forEach(t => { st[t] = { code: t, pts: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, p: 0 }; });
+  SCHEDULE.forEach(wk => wk.matches.forEach(m => {
+    if (m.group !== group) return;
+    const s = scores[m.id];
+    if (!s) return;
+    const a = parseInt(s.s1, 10), b = parseInt(s.s2, 10);
+    if (isNaN(a) || isNaN(b)) return;
+    st[m.team1].p++; st[m.team2].p++;
+    st[m.team1].gf += a; st[m.team1].ga += b;
+    st[m.team2].gf += b; st[m.team2].ga += a;
+    if (a > b) { st[m.team1].pts += 3; st[m.team1].w++; st[m.team2].l++; }
+    else if (a < b) { st[m.team2].pts += 3; st[m.team2].w++; st[m.team1].l++; }
+    else { st[m.team1].pts++; st[m.team1].d++; st[m.team2].pts++; st[m.team2].d++; }
+  }));
+  return Object.values(st).sort((a, b) =>
+    b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf
+  );
+}
+
+function getTopScorers(scores, scorersData) {
+  const map = {};
+  SCHEDULE.forEach(wk => wk.matches.forEach(m => {
+    const s = scores[m.id];
+    if (!s) return;
+    const a = parseInt(s.s1, 10), b = parseInt(s.s2, 10);
+    if (isNaN(a) || isNaN(b)) return;
+    const sd = scorersData[m.id];
+    if (!sd) return;
+    for (let i = 0; i < a; i++) {
+      const nm = (sd["t1_" + i] || "").trim();
+      if (!nm) continue;
+      const k = nm.toLowerCase() + "|" + m.team1;
+      if (!map[k]) map[k] = { name: nm, team: m.team1, goals: 0 };
+      map[k].goals++;
+    }
+    for (let i = 0; i < b; i++) {
+      const nm = (sd["t2_" + i] || "").trim();
+      if (!nm) continue;
+      const k = nm.toLowerCase() + "|" + m.team2;
+      if (!map[k]) map[k] = { name: nm, team: m.team2, goals: 0 };
+      map[k].goals++;
+    }
+  }));
+  return Object.values(map).sort((a, b) => b.goals - a.goals);
+}
+
+function getRank(list, idx) {
+  if (idx === 0) return 1;
+  if (list[idx].goals === list[idx - 1].goals) return getRank(list, idx - 1);
+  return idx + 1;
+}
+
+function App() {
+  const saved = loadData();
+  const [tab, setTab] = useState("calendar");
+  const [week, setWeek] = useState(null);
+  const [names, setNames] = useState(saved?.names || INIT_NAMES);
+  const [scores, setScores] = useState(saved?.scores || {});
+  const [scorersData, setScorersData] = useState(saved?.scorers || {});
+  const [open, setOpen] = useState(null);
+
+  // Auto-save on every change
+  useEffect(() => {
+    saveData({ names, scores, scorers: scorersData });
+  }, [names, scores, scorersData]);
+
+  const dn = useCallback((c) => names[c] || c, [names]);
+
+  const handleScore = useCallback((mid, side, val) => {
+    if (val !== "" && !/^\d+$/.test(val)) return;
+    setScores(p => {
+      const prev = p[mid] || {};
+      const next = { ...prev, [side]: val };
+      if (next.s1 === "" && next.s2 === "") {
+        const copy = { ...p };
+        delete copy[mid];
+        return copy;
+      }
+      return { ...p, [mid]: next };
+    });
+  }, []);
+
+  const handleScorer = useCallback((mid, key, val) => {
+    setScorersData(p => ({ ...p, [mid]: { ...(p[mid] || {}), [key]: val } }));
+  }, []);
+
+  const handleReset = () => {
+    if (window.confirm("Tout réinitialiser ? Les scores, buteurs et noms seront effacés.")) {
+      setScores({});
+      setScorersData({});
+      setNames(INIT_NAMES);
+    }
+  };
+
+  const handleExport = () => {
+    const data = { version: 1, exportDate: new Date().toISOString(), names, scores, scorers: scorersData };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = "tournoi-sauvegarde-" + date + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        if (!data.names || !data.scores) {
+          alert("Fichier invalide : données manquantes.");
+          return;
+        }
+        if (window.confirm("Charger cette sauvegarde ? Les données actuelles seront remplacées.")) {
+          setNames(data.names);
+          setScores(data.scores);
+          setScorersData(data.scorers || {});
+        }
+      } catch (err) {
+        alert("Erreur de lecture : le fichier n'est pas un JSON valide.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleGeneratePublic = () => {
+    const d = JSON.stringify({ names, scores, scorers: scorersData });
+    const sched = JSON.stringify(SCHEDULE);
+    const parts = [];
+    parts.push('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">');
+    parts.push('<title>Tournoi de Football - Résultats</title>');
+    parts.push('<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">');
+    parts.push('<style>');
+    parts.push('*{box-sizing:border-box;margin:0;padding:0}');
+    parts.push("body{background:#0a0e2a;background-image:radial-gradient(ellipse at 50% 0%,#1a237e 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,#0d47a1 0%,transparent 40%),radial-gradient(ellipse at 20% 80%,#1a237e 0%,transparent 35%);min-height:100vh;font-family:'Bitter',Georgia,serif;color:#e8eaf6}");
+    parts.push('body::before{content:"";position:fixed;inset:0;background-image:radial-gradient(1.2px 1.2px at 10% 15%,rgba(255,255,255,.7) 50%,transparent 50%),radial-gradient(1px 1px at 25% 35%,rgba(255,255,255,.5) 50%,transparent 50%),radial-gradient(1.5px 1.5px at 40% 8%,rgba(255,255,255,.8) 50%,transparent 50%),radial-gradient(1px 1px at 55% 42%,rgba(255,255,255,.4) 50%,transparent 50%),radial-gradient(1.3px 1.3px at 70% 20%,rgba(255,255,255,.6) 50%,transparent 50%),radial-gradient(1px 1px at 85% 55%,rgba(255,255,255,.5) 50%,transparent 50%),radial-gradient(1.4px 1.4px at 15% 60%,rgba(255,255,255,.6) 50%,transparent 50%),radial-gradient(1px 1px at 35% 75%,rgba(255,255,255,.4) 50%,transparent 50%),radial-gradient(1.6px 1.6px at 60% 65%,rgba(255,255,255,.7) 50%,transparent 50%),radial-gradient(1px 1px at 78% 80%,rgba(255,255,255,.5) 50%,transparent 50%),radial-gradient(1.2px 1.2px at 92% 30%,rgba(255,255,255,.6) 50%,transparent 50%),radial-gradient(1px 1px at 5% 90%,rgba(255,255,255,.4) 50%,transparent 50%),radial-gradient(1.5px 1.5px at 48% 92%,rgba(255,255,255,.5) 50%,transparent 50%);pointer-events:none;z-index:0;animation:tw 6s ease-in-out infinite alternate}');
+    parts.push('@keyframes tw{0%{opacity:.7}50%{opacity:1}100%{opacity:.75}}');
+    parts.push('#app{position:relative;z-index:1;max-width:600px;margin:0 auto;padding:20px 12px}');
+    parts.push(".dm{font-family:'DM Sans',sans-serif}");
+    parts.push('.card{background:rgba(255,255,255,.06);border-radius:10px;border:1px solid rgba(255,255,255,.1);overflow:hidden;margin-bottom:14px;backdrop-filter:blur(4px)}');
+    parts.push('.card-hd{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);display:flex;align-items:center;gap:10px}');
+    parts.push('.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px;color:#fff}');
+    parts.push('.ba{background:#4caf50}.bb{background:#42a5f5}');
+    parts.push(".tabs{display:flex;margin-bottom:14px;background:rgba(255,255,255,.08);border-radius:8px;padding:3px;backdrop-filter:blur(4px)}");
+    parts.push(".tabs button{flex:1;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 4px;border-radius:6px;border:none;cursor:pointer;color:rgba(255,255,255,.5);background:transparent}");
+    parts.push('.tabs button.on{background:rgba(255,255,255,.15);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}');
+    parts.push("table{width:100%;border-collapse:collapse;font-family:'DM Sans',sans-serif;font-size:12px}");
+    parts.push('th{padding:7px 4px;font-size:10px;font-weight:600;color:rgba(255,255,255,.4);border-bottom:2px solid rgba(255,255,255,.08)}');
+    parts.push('td{padding:8px 4px;text-align:center;font-size:12px;color:#c5cae9}');
+    parts.push('.sep{border-bottom:1px solid rgba(255,255,255,.05)}');
+    parts.push(".match-row{padding:11px 14px;display:flex;flex-direction:column;gap:6px}");
+    parts.push(".score-box{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);border-radius:6px;padding:4px 10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e8eaf6}");
+    parts.push('.score-box .w{color:#81c784}.score-box .sep-s{color:rgba(255,255,255,.2);font-size:11px;margin:0 2px}');
+    parts.push(".team-name{font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;flex:1}");
+    parts.push('.ta{color:#4caf50}.tb{color:#42a5f5}');
+    parts.push('.day{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}');
+    parts.push('.day-mar{color:#ffd54f;background:rgba(255,213,79,.12)}.day-mer{color:#ce93d8;background:rgba(206,147,216,.12)}');
+    parts.push(".ref{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.35)} .ref strong{color:rgba(255,255,255,.55)}");
+    parts.push('.scorers{padding:8px 12px;background:rgba(255,255,255,.03);border-top:1px dashed rgba(255,255,255,.1);display:flex;gap:10px}');
+    parts.push(".scorers-col{flex:1} .scorers-col h4{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}");
+    parts.push(".scorers-col .g{font-family:'DM Sans',sans-serif;font-size:12px;color:#c5cae9;margin-bottom:2px}");
+    parts.push(".wk-btns{display:flex;gap:4px;margin-bottom:10px;justify-content:center;flex-wrap:wrap}");
+    parts.push(".wk-btns button{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:6px 11px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);cursor:pointer}");
+    parts.push('.wk-btns button.on{font-weight:700;border:2px solid #90caf9;background:rgba(144,202,249,.15);color:#fff}');
+    parts.push(".top-row{display:flex;align-items:center;gap:10px;padding:10px 14px}");
+    parts.push(".top-row .rank{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;width:28px;text-align:center;color:rgba(255,255,255,.4);flex-shrink:0}");
+    parts.push(".top-row .info{flex:1;min-width:0} .top-row .info .nm{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}");
+    parts.push(".top-row .info .tm{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;margin-top:1px}");
+    parts.push(".top-row .goals{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 10px;flex-shrink:0}");
+    parts.push(".top-row .goals span:first-child{font-family:'DM Sans',sans-serif;font-size:16px;font-weight:800;color:#ffd54f}");
+    parts.push(".top-row .goals span:last-child{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;color:rgba(255,255,255,.4)}");
+    parts.push('.podium{background:rgba(255,215,0,.05)}');
+    parts.push(".footer{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:8px 14px;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.06)}");
+    parts.push('</style></head><body><div id="app"></div>');
+    parts.push('<script>');
+    parts.push('var DATA=' + d + ';');
+    parts.push('var SCHEDULE=' + sched + ';');
+    parts.push('var tab="calendar",weekFilter=null;');
+    parts.push('var CA="#4caf50",CB="#42a5f5";');
+    parts.push('function gc(g){return g==="A"?CA:CB}');
+    parts.push('function dn(c){return DATA.names[c]||c}');
+    parts.push('function esc(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML}');
+    parts.push('function getStandings(g){var teams=[1,2,3,4,5].map(function(n){return g+n});var st={};teams.forEach(function(t){st[t]={code:t,pts:0,w:0,d:0,l:0,gf:0,ga:0,p:0}});SCHEDULE.forEach(function(wk){wk.matches.forEach(function(m){if(m.group!==g)return;var s=DATA.scores[m.id];if(!s)return;var a=parseInt(s.s1,10),b=parseInt(s.s2,10);if(isNaN(a)||isNaN(b))return;st[m.team1].p++;st[m.team2].p++;st[m.team1].gf+=a;st[m.team1].ga+=b;st[m.team2].gf+=b;st[m.team2].ga+=a;if(a>b){st[m.team1].pts+=3;st[m.team1].w++;st[m.team2].l++}else if(a<b){st[m.team2].pts+=3;st[m.team2].w++;st[m.team1].l++}else{st[m.team1].pts++;st[m.team1].d++;st[m.team2].pts++;st[m.team2].d++}})});return Object.values(st).sort(function(a,b){return b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf})}');
+    parts.push('function getTopScorers(){var map={};SCHEDULE.forEach(function(wk){wk.matches.forEach(function(m){var s=DATA.scores[m.id];if(!s)return;var a=parseInt(s.s1,10),b=parseInt(s.s2,10);if(isNaN(a)||isNaN(b))return;var sd=DATA.scorers[m.id];if(!sd)return;for(var i=0;i<a;i++){var nm=(sd["t1_"+i]||"").trim();if(!nm)continue;var k=nm.toLowerCase()+"|"+m.team1;if(!map[k])map[k]={name:nm,team:m.team1,goals:0};map[k].goals++}for(var i=0;i<b;i++){var nm=(sd["t2_"+i]||"").trim();if(!nm)continue;var k=nm.toLowerCase()+"|"+m.team2;if(!map[k])map[k]={name:nm,team:m.team2,goals:0};map[k].goals++}})});return Object.values(map).sort(function(a,b){return b.goals-a.goals})}');
+    parts.push('function getRank(list,idx){if(idx===0)return 1;if(list[idx].goals===list[idx-1].goals)return getRank(list,idx-1);return idx+1}');
+    parts.push('function setTab(t){tab=t;render()}');
+    parts.push('function setWeek(w){weekFilter=w;render()}');
+    // renderStandings
+    parts.push('function renderStandings(g,data){var rows="";data.forEach(function(t,i){var diff=t.gf-t.ga;var dc=diff>0?"color:#81c784":diff<0?"color:#ef5350":"color:rgba(255,255,255,.3)";var medal=t.p>0?(i===0?"\\u{1F947}":i===1?"\\u{1F948}":i===2?"\\u{1F949}":""+(i+1)):""+(i+1);var rc=i===0&&t.p>0?" style=\\"background:rgba(255,255,255,.04)\\"":"";rows+="<tr"+(i<4?" class=\\"sep\\"":"")+rc+"><td style=\\"font-weight:700\\">"+medal+"<\\/td><td style=\\"text-align:left;font-weight:700;color:"+gc(g)+";white-space:nowrap\\">"+esc(dn(t.code))+"<\\/td><td>"+t.p+"<\\/td><td style=\\"color:"+(t.w?"#81c784":"rgba(255,255,255,.2)")+"\\">"+t.w+"<\\/td><td style=\\"color:"+(t.d?"rgba(255,255,255,.4)":"rgba(255,255,255,.2)")+"\\">"+t.d+"<\\/td><td style=\\"color:"+(t.l?"#ef5350":"rgba(255,255,255,.2)")+"\\">"+t.l+"<\\/td><td>"+t.gf+"<\\/td><td>"+t.ga+"<\\/td><td style=\\"font-weight:600;"+dc+"\\">"+(diff>0?"+"+diff:diff)+"<\\/td><td style=\\"font-weight:800;font-size:14px;color:#fff\\">"+t.pts+"<\\/td><\\/tr>"});return "<div class=\\"card\\"><div class=\\"card-hd\\"><span class=\\"badge b"+g.toLowerCase()+"\\">POULE "+g+"<\\/span><span style=\\"font-weight:700;font-size:14px;color:#fff\\">Classement<\\/span><\\/div><div style=\\"overflow-x:auto\\"><table><thead><tr><th>\\u{0023}<\\/th><th style=\\"text-align:left\\">\\u{00C9}quipe<\\/th><th>MJ<\\/th><th>V<\\/th><th>N<\\/th><th>D<\\/th><th>BP<\\/th><th>BC<\\/th><th>\\u{00B1}<\\/th><th style=\\"font-weight:800;color:#90caf9\\">Pts<\\/th><\\/tr><\\/thead><tbody>"+rows+"<\\/tbody><\\/table><\\/div><\\/div>"}');
+    // renderScorers
+    parts.push('function renderScorers(){var list=getTopScorers();if(!list.length)return "<div class=\\"card\\"><div class=\\"card-hd\\"><span style=\\"font-size:18px\\">\\u{26BD}<\\/span><span style=\\"font-weight:700;font-size:15px;color:#fff\\">Meilleurs Buteurs<\\/span><\\/div><div style=\\"padding:30px 16px;text-align:center;color:rgba(255,255,255,.4)\\">Aucun buteur enregistr\\u{00E9}.<\\/div><\\/div>";var rows="";list.forEach(function(s,i){var rank=getRank(list,i);var medal=rank===1?"\\u{1F947}":rank===2?"\\u{1F948}":rank===3?"\\u{1F949}":null;var cls="top-row"+(rank<=3?" podium":"")+(i<list.length-1?" sep":"");rows+="<div class=\\""+cls+"\\"><div class=\\"rank\\">"+(medal||rank)+"<\\/div><div class=\\"info\\"><div class=\\"nm\\">"+esc(s.name)+"<\\/div><div class=\\"tm\\" style=\\"color:"+gc(s.team[0])+"\\">"+esc(dn(s.team))+"<\\/div><\\/div><div class=\\"goals\\"><span>"+s.goals+"<\\/span><span>but"+(s.goals>1?"s":"")+"<\\/span><\\/div><\\/div>"});var total=list.reduce(function(a,s){return a+s.goals},0);return "<div class=\\"card\\"><div class=\\"card-hd\\"><span style=\\"font-size:18px\\">\\u{26BD}<\\/span><span style=\\"font-weight:700;font-size:15px;color:#fff\\">Meilleurs Buteurs<\\/span><\\/div>"+rows+"<div class=\\"footer\\">"+list.length+" buteur"+(list.length>1?"s":"")+" \\u{2022} "+total+" buts au total<\\/div><\\/div>"}');
+    // renderCalendar
+    parts.push('function renderCalendar(){var html="<div class=\\"wk-btns\\"><button class=\\""+(weekFilter===null?"on":"")+"\\""+" onclick=\\"setWeek(null)\\">Tout<\\/button>";SCHEDULE.forEach(function(w){html+="<button class=\\""+(weekFilter===w.week?"on":"")+"\\""+" onclick=\\"setWeek("+w.week+")\\">S"+w.week+"<\\/button>"});html+="<\\/div>";SCHEDULE.forEach(function(w){if(weekFilter!==null&&w.week!==weekFilter)return;html+="<div class=\\"card\\"><div class=\\"card-hd\\" style=\\"justify-content:space-between\\"><div><span style=\\"font-weight:700;font-size:15px;color:#fff\\">Semaine "+w.week+"<\\/span><span class=\\"dm\\" style=\\"font-size:11px;color:rgba(255,255,255,.35);margin-left:8px\\">"+(w.label||"")+"<\\/span><\\/div><span class=\\"dm\\" style=\\"font-size:11px;color:rgba(255,255,255,.4)\\">"+w.matches.length+" match"+(w.matches.length>1?"s":"")+"<\\/span><\\/div>";w.matches.forEach(function(m,i){var sc=DATA.scores[m.id]||{};var a=parseInt(sc.s1,10),b=parseInt(sc.s2,10);var ok=!isNaN(a)&&!isNaN(b);var sd=DATA.scorers[m.id]||{};var grp=m.group;var col=gc(grp);var dayC=m.day==="Mardi"?"day-mar":"day-mer";html+="<div class=\\"match-row"+(i<w.matches.length-1?" sep":"")+"\\"><div style=\\"display:flex;gap:6px;align-items:center\\"><span class=\\"day "+dayC+"\\">"+m.day+" "+(m.date||"")+"<\\/span><span class=\\"badge b"+grp.toLowerCase()+"\\" style=\\"font-size:10px;padding:1px 6px\\">POULE "+grp+"<\\/span><\\/div><div style=\\"display:flex;align-items:center;justify-content:center;gap:5px\\"><span class=\\"team-name t"+grp.toLowerCase()+"\\" style=\\"text-align:right\\">"+esc(dn(m.team1))+"<\\/span>";if(ok){var w1=a>b?" w":"";var w2=b>a?" w":"";html+="<span class=\\"score-box\\"><span class=\\""+w1+"\\">"+a+"<\\/span><span class=\\"sep-s\\">:<\\/span><span class=\\""+w2+"\\">"+b+"<\\/span><\\/span>"}else{html+="<span class=\\"score-box\\"><span>-<\\/span><span class=\\"sep-s\\">:<\\/span><span>-<\\/span><\\/span>"}html+="<span class=\\"team-name t"+grp.toLowerCase()+"\\" style=\\"text-align:left\\">"+esc(dn(m.team2))+"<\\/span><\\/div><div class=\\"ref\\">\\u{1F7E8} Arbitre : <strong>"+esc(dn(m.ref))+"<\\/strong><\\/div>";if(ok&&(a+b)>0){var hasS=false;for(var x=0;x<a;x++)if((sd["t1_"+x]||"").trim())hasS=true;for(var x=0;x<b;x++)if((sd["t2_"+x]||"").trim())hasS=true;if(hasS){html+="<div class=\\"scorers\\">";if(a>0){html+="<div class=\\"scorers-col\\"><h4 style=\\"color:"+col+"\\">"+esc(dn(m.team1))+"<\\/h4>";for(var x=0;x<a;x++){var nm=(sd["t1_"+x]||"").trim();if(nm)html+="<div class=\\"g\\">\\u{26BD} "+esc(nm)+"<\\/div>"}html+="<\\/div>"}if(b>0){html+="<div class=\\"scorers-col\\"><h4 style=\\"color:"+col+"\\">"+esc(dn(m.team2))+"<\\/h4>";for(var x=0;x<b;x++){var nm=(sd["t2_"+x]||"").trim();if(nm)html+="<div class=\\"g\\">\\u{26BD} "+esc(nm)+"<\\/div>"}html+="<\\/div>"}html+="<\\/div>"}}html+="<\\/div>"});html+="<\\/div>"});return html}');
+    // render
+    parts.push('function render(){var el=document.getElementById("app");var html="<div style=\\"text-align:center;margin-bottom:18px\\"><div class=\\"dm\\" style=\\"font-size:11px;font-weight:600;letter-spacing:3px;color:#90caf9;text-transform:uppercase;margin-bottom:4px\\">Tournoi de Football<\\/div><h1 style=\\"font-size:22px;font-weight:700;color:#fff\\">\\u{2B50} R\\u{00E9}sultats & Classement \\u{2B50}<\\/h1><\\/div>";html+="<div class=\\"tabs\\">";["calendar","standings","scorers"].forEach(function(t){var labels={calendar:"\\u{1F4C5} Matchs",standings:"\\u{1F3C6} Classement",scorers:"\\u{26BD} Buteurs"};html+="<button class=\\""+(tab===t?"on":"")+"\\""+" onclick=\\"setTab(\'"+t+"\')\\""+">"+labels[t]+"<\\/button>"});html+="<\\/div>";if(tab==="standings"){html+=renderStandings("A",getStandings("A"))+renderStandings("B",getStandings("B"))+"<div class=\\"dm\\" style=\\"font-size:11px;color:rgba(255,255,255,.3);text-align:center\\">Tri : Points \\u{203A} Diff. de buts \\u{203A} Buts marqu\\u{00E9}s<\\/div>"}if(tab==="scorers"){html+=renderScorers()}if(tab==="calendar"){html+=renderCalendar()}html+="<div class=\\"dm\\" style=\\"font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:16px\\">G\\u{00E9}n\\u{00E9}r\\u{00E9} le "+new Date().toLocaleDateString("fr-FR")+"<\\/div>";el.innerHTML=html}');
+    parts.push('render();');
+    parts.push('<' + '/script></body></html>');
+
+    const blob = new Blob([parts.join('\n')], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = "tournoi-resultats-" + date + ".html";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const stA = useMemo(() => getStandings("A", scores), [scores]);
+  const stB = useMemo(() => getStandings("B", scores), [scores]);
+  const topS = useMemo(() => getTopScorers(scores, scorersData), [scores, scorersData]);
+
+  const gc = (g) => g === "A" ? CA : CB;
+
+  const tds = { padding: "8px 4px", textAlign: "center", fontSize: 12, color: "#c5cae9" };
+  const wkBtn = (on) => ({
+    fontFamily: "'DM Sans',sans-serif", fontSize: 12,
+    fontWeight: on ? 700 : 500, padding: "6px 11px", borderRadius: 6,
+    border: on ? "2px solid #90caf9" : "1px solid rgba(255,255,255,0.15)",
+    background: on ? "rgba(144,202,249,0.15)" : "rgba(255,255,255,0.05)",
+    color: on ? "#fff" : "rgba(255,255,255,0.5)", cursor: "pointer",
+  });
+  const sIn = (win) => ({
+    width: 28, textAlign: "center", fontFamily: "'DM Sans',sans-serif",
+    fontSize: 16, fontWeight: 700, padding: "3px 2px",
+    border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 4, outline: "none",
+    background: win ? "rgba(76,175,80,0.2)" : "rgba(255,255,255,0.08)",
+    color: win ? "#81c784" : "#e8eaf6",
+  });
+
+  return (
+    <div style={{ fontFamily: "'Bitter',Georgia,serif", background: "transparent", minHeight: "100vh", padding: "20px 12px", color: "#e8eaf6", maxWidth: 600, margin: "0 auto" }}>
+
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, letterSpacing: 3, color: "#90caf9", textTransform: "uppercase", marginBottom: 4 }}>Tournoi de Football</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#fff" }}>⭐ Calendrier & Classement ⭐</h1>
+      </div>
+
+      {/* TABS */}
+      <div style={{ display: "flex", marginBottom: 14, background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: 3, backdropFilter: "blur(4px)" }}>
+        {[
+          ["calendar", "📅 Matchs"],
+          ["standings", "🏆 Classement"],
+          ["scorers", "⚽ Buteurs"],
+          ["settings", "⚙️"],
+        ].map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            flex: k === "settings" ? "0 0 40px" : 1,
+            fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600,
+            padding: "8px 4px", borderRadius: 6, border: "none", cursor: "pointer",
+            background: tab === k ? "rgba(255,255,255,0.15)" : "transparent",
+            color: tab === k ? "#fff" : "rgba(255,255,255,0.5)",
+            boxShadow: tab === k ? "0 1px 3px rgba(0,0,0,.2)" : "none",
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ========== SETTINGS ========== */}
+      {tab === "settings" && (
+        <div>
+          <input type="file" id="importFile" accept=".json" style={{ display: "none" }} onChange={handleImport} />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 14, background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(4px)" }}>
+            <div style={{ gridColumn: "1/-1", fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 2, color: "#fff" }}>Renommer les équipes</div>
+            {Object.keys(names).map(c => (
+              <div key={c} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 700, color: gc(c[0]), width: 22, flexShrink: 0 }}>{c}</span>
+                <input value={names[c]} onChange={e => setNames(p => ({ ...p, [c]: e.target.value }))}
+                  style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, padding: "6px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", width: "100%", outline: "none", background: "rgba(255,255,255,0.08)", color: "#e8eaf6" }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Export / Import / Reset */}
+          <div style={{ marginTop: 12, padding: 14, background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(4px)" }}>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#fff" }}>💾 Sauvegarde & restauration</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
+              Exportez vos données dans un fichier JSON pour les sauvegarder ou les transférer sur un autre appareil / navigateur.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              <button onClick={handleExport} style={{
+                fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600,
+                padding: "9px 18px", borderRadius: 6, border: "none",
+                background: "linear-gradient(135deg, #4caf50, #2e7d32)", color: "#fff", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>📥 Exporter la sauvegarde</button>
+              <button onClick={() => document.getElementById("importFile").click()} style={{
+                fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600,
+                padding: "9px 18px", borderRadius: 6, border: "none",
+                background: "linear-gradient(135deg, #42a5f5, #1565c0)", color: "#fff", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>📤 Importer une sauvegarde</button>
+            </div>
+
+            {/* Generate public version */}
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 14, paddingTop: 14, textAlign: "center" }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 10, lineHeight: 1.5 }}>
+                Générez un fichier HTML en lecture seule avec l'état actuel des scores, classements et buteurs — parfait pour partager avec les joueurs.
+              </div>
+              <button onClick={handleGeneratePublic} style={{
+                fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 700,
+                padding: "10px 22px", borderRadius: 8, border: "none",
+                background: "linear-gradient(135deg, #ffd54f, #ff8f00)", color: "#1a1a1a", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                boxShadow: "0 2px 12px rgba(255,213,79,0.25)",
+              }}>⭐ Générer la version publique</button>
+            </div>
+
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 14, paddingTop: 12, textAlign: "center" }}>
+              <button onClick={handleReset} style={{
+                fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600,
+                padding: "8px 20px", borderRadius: 6, border: "1.5px solid #ef5350",
+                background: "transparent", color: "#ef5350", cursor: "pointer",
+              }}>🗑️ Tout réinitialiser</button>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 8, fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center" }}>
+            Les données sont aussi sauvegardées automatiquement dans le navigateur.
+          </div>
+        </div>
+      )}
+
+      {/* ========== STANDINGS ========== */}
+      {tab === "standings" && (
+        <div>
+          {[["A", stA], ["B", stB]].map(([g, data]) => (
+            <div key={g} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden", marginBottom: 14, backdropFilter: "blur(4px)" }}>
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: .5, color: "#fff", background: gc(g) }}>POULE {g}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>Classement</span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'DM Sans',sans-serif", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                      {["#","Équipe","MJ","V","N","D","BP","BC","±","Pts"].map((h, i) => (
+                        <th key={h} style={{ padding: "7px 4px", textAlign: i === 1 ? "left" : "center", fontSize: 10, fontWeight: h === "Pts" ? 800 : 600, color: h === "Pts" ? "#90caf9" : "rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.08)" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((t, i) => {
+                      const diff = t.gf - t.ga;
+                      return (
+                        <tr key={t.code} style={{ borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.05)" : "none", background: i === 0 && t.p > 0 ? "rgba(255,255,255,0.04)" : "transparent" }}>
+                          <td style={{ ...tds, fontWeight: 700 }}>{t.p > 0 ? (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1) : i + 1}</td>
+                          <td style={{ ...tds, textAlign: "left", fontWeight: 700, color: gc(g), whiteSpace: "nowrap" }}>{dn(t.code)}</td>
+                          <td style={tds}>{t.p}</td>
+                          <td style={{ ...tds, color: t.w ? "#81c784" : "rgba(255,255,255,0.2)" }}>{t.w}</td>
+                          <td style={{ ...tds, color: t.d ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)" }}>{t.d}</td>
+                          <td style={{ ...tds, color: t.l ? "#ef5350" : "rgba(255,255,255,0.2)" }}>{t.l}</td>
+                          <td style={tds}>{t.gf}</td>
+                          <td style={tds}>{t.ga}</td>
+                          <td style={{ ...tds, fontWeight: 600, color: diff > 0 ? "#81c784" : diff < 0 ? "#ef5350" : "rgba(255,255,255,0.3)" }}>{diff > 0 ? "+" + diff : diff}</td>
+                          <td style={{ ...tds, fontWeight: 800, fontSize: 14, color: "#fff" }}>{t.pts}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center" }}>Tri : Points › Diff. de buts › Buts marqués</div>
+        </div>
+      )}
+
+      {/* ========== TOP SCORERS ========== */}
+      {tab === "scorers" && (
+        <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden", backdropFilter: "blur(4px)" }}>
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }}>⚽</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>Meilleurs Buteurs</span>
+          </div>
+          {topS.length === 0 ? (
+            <div style={{ padding: "30px 16px", textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
+              Entrez les scores et noms des buteurs dans l'onglet Matchs pour voir le classement ici.
+            </div>
+          ) : (
+            <div>
+              {topS.map((s, i) => {
+                const rank = getRank(topS, i);
+                const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+                const col = gc(s.team[0]);
+                return (
+                  <div key={s.name + s.team} style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                    borderBottom: i < topS.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    background: rank <= 3 ? "rgba(255,215,0,0.05)" : "transparent",
+                  }}>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, width: 28, textAlign: "center", color: "rgba(255,255,255,0.4)", flexShrink: 0 }}>
+                      {medal || rank}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: col, marginTop: 1 }}>{dn(s.team)}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 10px", flexShrink: 0 }}>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, fontWeight: 800, color: "#ffd54f" }}>{s.goals}</span>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>but{s.goals > 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {topS.length > 0 && (
+            <div style={{ padding: "8px 14px", background: "rgba(255,255,255,0.03)", borderTop: "1px solid rgba(255,255,255,0.06)", fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center" }}>
+              {topS.length} buteur{topS.length > 1 ? "s" : ""} • {topS.reduce((a, s) => a + s.goals, 0)} buts au total
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========== CALENDAR ========== */}
+      {tab === "calendar" && (
+        <div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={() => setWeek(null)} style={wkBtn(week === null)}>Tout</button>
+            {SCHEDULE.map(w => (
+              <button key={w.week} onClick={() => setWeek(w.week)} style={wkBtn(week === w.week)}>S{w.week}</button>
+            ))}
+          </div>
+
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 12, padding: "6px 10px", background: "rgba(255,215,0,0.08)", borderRadius: 6, border: "1px solid rgba(255,215,0,0.15)" }}>
+            💡 Entrez un score puis tapez sur le match pour ajouter les buteurs
+          </div>
+
+          {SCHEDULE.filter(w => week === null || w.week === week).map(w => (
+            <div key={w.week} style={{ marginBottom: 14, background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden", backdropFilter: "blur(4px)" }}>
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>Semaine {w.week}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: 8 }}>{w.label}</span>
+                </div>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{w.matches.length} match{w.matches.length > 1 ? "s" : ""}</span>
+              </div>
+              {w.matches.map((m, i) => {
+                const sc = scores[m.id] || {};
+                const a = parseInt(sc.s1, 10), b = parseInt(sc.s2, 10);
+                const ok = !isNaN(a) && !isNaN(b);
+                const hasGoals = ok && (a + b > 0);
+                const isOpen = open === m.id;
+                const sd = scorersData[m.id] || {};
+                const total = hasGoals ? a + b : 0;
+                const filled = hasGoals
+                  ? [...Array(a)].filter((_, j) => (sd["t1_" + j] || "").trim()).length
+                    + [...Array(b)].filter((_, j) => (sd["t2_" + j] || "").trim()).length
+                  : 0;
+                const col = gc(m.group);
+
+                return (
+                  <div key={m.id} style={{ borderBottom: i < w.matches.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <div
+                      onClick={() => hasGoals && setOpen(isOpen ? null : m.id)}
+                      style={{ padding: "11px 14px", display: "flex", flexDirection: "column", gap: 6, cursor: hasGoals ? "pointer" : "default" }}
+                    >
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, color: m.day === "Mardi" ? "#ffd54f" : "#ce93d8", background: m.day === "Mardi" ? "rgba(255,213,79,0.12)" : "rgba(206,147,216,0.12)" }}>{m.day} {m.date}</span>
+                        <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: .5, color: "#fff", background: col }}>POULE {m.group}</span>
+                        {hasGoals && (
+                          <span style={{
+                            marginLeft: "auto", fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 600,
+                            color: filled === total ? "#81c784" : "#ffd54f",
+                            background: filled === total ? "rgba(129,199,132,0.12)" : "rgba(255,213,79,0.12)",
+                            padding: "1px 6px", borderRadius: 4,
+                          }}>
+                            {filled === total ? "✓ Buteurs" : filled + "/" + total + " buteurs"} {isOpen ? "▲" : "▼"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: 13, textAlign: "right", flex: 1, color: col }}>{dn(m.team1)}</span>
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 5px" }}>
+                          <input type="text" inputMode="numeric" maxLength={2}
+                            value={sc.s1 !== undefined ? sc.s1 : ""}
+                            onChange={e => handleScore(m.id, "s1", e.target.value)}
+                            placeholder="-"
+                            style={sIn(ok && a > b)} />
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.2)" }}>:</span>
+                          <input type="text" inputMode="numeric" maxLength={2}
+                            value={sc.s2 !== undefined ? sc.s2 : ""}
+                            onChange={e => handleScore(m.id, "s2", e.target.value)}
+                            placeholder="-"
+                            style={sIn(ok && b > a)} />
+                        </div>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: 13, textAlign: "left", flex: 1, color: col }}>{dn(m.team2)}</span>
+                      </div>
+
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center", gap: 4 }}>
+                        🟨 Arbitre : <strong style={{ color: "rgba(255,255,255,0.55)" }}>{dn(m.ref)}</strong>
+                      </div>
+                    </div>
+
+                    {isOpen && hasGoals && (
+                      <div onClick={e => e.stopPropagation()} style={{ padding: "10px 12px 12px", background: "rgba(255,255,255,0.03)", borderTop: "1px dashed rgba(255,255,255,0.1)", display: "flex", gap: 10 }}>
+                        {a > 0 && (
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: col, letterSpacing: .5, marginBottom: 5, textTransform: "uppercase" }}>{dn(m.team1)}</div>
+                            {[...Array(a)].map((_, j) => (
+                              <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                                <span style={{ fontSize: 11 }}>⚽</span>
+                                <input type="text"
+                                  value={sd["t1_" + j] || ""}
+                                  onChange={e => handleScorer(m.id, "t1_" + j, e.target.value)}
+                                  placeholder={"Buteur " + (j + 1)}
+                                  style={{
+                                    fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 500,
+                                    padding: "5px 8px", borderRadius: 5, outline: "none", flex: 1, color: "#e8eaf6",
+                                    border: sd["t1_" + j] ? "1.5px solid " + col + "55" : "1px solid rgba(255,255,255,0.12)",
+                                    background: sd["t1_" + j] ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+                                  }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {b > 0 && (
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: col, letterSpacing: .5, marginBottom: 5, textTransform: "uppercase" }}>{dn(m.team2)}</div>
+                            {[...Array(b)].map((_, j) => (
+                              <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                                <span style={{ fontSize: 11 }}>⚽</span>
+                                <input type="text"
+                                  value={sd["t2_" + j] || ""}
+                                  onChange={e => handleScorer(m.id, "t2_" + j, e.target.value)}
+                                  placeholder={"Buteur " + (j + 1)}
+                                  style={{
+                                    fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 500,
+                                    padding: "5px 8px", borderRadius: 5, outline: "none", flex: 1, color: "#e8eaf6",
+                                    border: sd["t2_" + j] ? "1.5px solid " + col + "55" : "1px solid rgba(255,255,255,0.12)",
+                                    background: sd["t2_" + j] ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+                                  }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
